@@ -1,11 +1,13 @@
 import feedparser, datetime
 import os
+from datetime import timezone
 
 # get the environment variable in windows
 LINE_TOKEN = os.environ.get('LINE_TOKEN')
 
 
 RSS_URLS_FILE = 'feed_url.txt'
+LAST_CHECK_TIME = 'last_checked_time.txt'
 
 def get_rss_urls():
     # read rss urls from file
@@ -15,15 +17,15 @@ def get_rss_urls():
 
 def get_last_checked_time():
     # check if the file exists
-    if os.path.exists('last_checked_time.txt'):
-        with open("last_checked_time.txt", "r") as f:
-            return datetime.datetime.fromisoformat(f.read().strip())
+    if os.path.exists(LAST_CHECK_TIME):
+        with open(LAST_CHECK_TIME, "r") as f:
+            return datetime.datetime.fromisoformat(f.read().strip()).replace(tzinfo=timezone.utc)
 
     return None
 
 def save_last_checked_time(last_checked_time):
-    with open("last_checked_time.txt", "w") as f:
-        f.write()
+    with open(LAST_CHECK_TIME, "w") as f:
+        f.write(last_checked_time.isoformat())
 
 def check_rss_feeds():
     rss_urls = get_rss_urls()
@@ -36,12 +38,14 @@ def check_rss_feeds():
         new_entries = []
 
         for entry in feed['entries']:
-            published = datetime.datetime.fromtimestamp(datetime.datetime.strftime(entry.published, "%Y-%m-%d %H:%M:%S").timestamp())
+            format_str = "%a, %d %b %Y %H:%M:%S %z"
+            published = datetime.datetime.strptime(entry.published, format_str)
+ 
 
-        if published > last_checked:
-            new_entries.append(entry.link)
-            if published > last_date:
-                last_date = published
+            if published > last_checked:
+                new_entries.append(entry.link)
+                if published > last_date:
+                    last_date = published
         
         if new_entries:
             for url in new_entries:
@@ -51,3 +55,7 @@ def check_rss_feeds():
         save_last_checked_time(last_date)
 
         print(new_entries)
+
+
+if __name__ == '__main__':
+    check_rss_feeds()
