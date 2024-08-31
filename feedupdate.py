@@ -1,6 +1,8 @@
 import feedparser, datetime
 import os
 from datetime import timezone
+# send message to line notify
+from songline import Sendline
 
 # get the environment variable in windows
 LINE_TOKEN = os.environ.get('LINE_TOKEN')
@@ -46,10 +48,14 @@ def check_rss_feeds():
                 new_entries.append(entry.link)
                 if published > last_date:
                     last_date = published
-        
+        msg = ''
         if new_entries:
             for url in new_entries:
-                print(url)
+                msg += url + '\n'
+
+    bot_line = Sendline(LINE_TOKEN)
+    bot_line.sendtext(msg)
+        
 
     if last_date > last_checked:
         save_last_checked_time(last_date)
