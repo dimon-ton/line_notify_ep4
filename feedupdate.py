@@ -12,10 +12,13 @@ RSS_URLS_FILE = 'feed_url.txt'
 LAST_CHECK_TIME = 'last_checked_time.txt'
 
 def get_rss_urls():
-    # read rss urls from file
-    with open(RSS_URLS_FILE, 'r') as f:
-        rss_urls = f.read().splitlines()
-    return rss_urls
+    try:
+        # read rss urls from file
+        with open(RSS_URLS_FILE, 'r') as f:
+            return f.read().splitlines()
+    except FileNotFoundError:
+        print(f'Error: The file {RSS_URLS_FILE} was not found.')
+        return []
 
 def get_last_checked_time():
     # check if the file exists
@@ -32,30 +35,33 @@ def save_last_checked_time(last_checked_time):
 def check_rss_feeds():
     rss_urls = get_rss_urls()
     last_checked = get_last_checked_time()
+    if last_checked is None:
+        last_checked = datetime.datetime.min.replace(tzinfo=timezone.utc)
     last_date = last_checked
+    new_entries = []
 
     for rss_url in rss_urls:
-        feed = feedparser.parse(rss_url)
-
-        new_entries = []
-
-        for entry in feed['entries']:
-            format_str = "%a, %d %b %Y %H:%M:%S %z"
-            published = datetime.datetime.strptime(entry.published, format_str)
- 
-
-            if published > last_checked:
-                new_entries.append(entry.link)
-                if published > last_date:
-                    last_date = published
-        msg = ''
-        if new_entries:
-            for url in new_entries:
-                msg += url + '\n'
-
-    bot_line = Sendline(LINE_TOKEN)
-    bot_line.sendtext(msg)
+        try:
+            feed = feedparser.parse(rss_url)
         
+            for entry in feed['entries']:
+                format_str = "%a, %d %b %Y %H:%M:%S %z"
+                published = datetime.datetime.strptime(entry.published, format_str)
+    
+
+                if published > last_checked:
+                    new_entries.append(entry.link)
+                    if published > last_date:
+                        last_date = published
+        except Exception as e:
+            print(f'Error processing RSS feed {rss_url}: {e}')
+
+    if new_entries:
+        msg = '\n'.join(new_entries)
+        bot_line = Sendline(LINE_TOKEN)
+        bot_line.sendtext(msg)
+    else:
+        print("No new entries found.")
 
     if last_date > last_checked:
         save_last_checked_time(last_date)
